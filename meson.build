@@ -26,13 +26,11 @@ includes = include_directories('lib/openssl/openssl_share_3.0.0/include')
 openssl_dep = meson.get_compiler('cpp').find_library(
         'ssl',
         dirs : join_paths(meson.source_root(),'lib/openssl/openssl_share_3.0.0/lib'),
-        version:'>=3.0.0',
         required:get_option('cpp-httplib_openssl')
     )
 crypto_dep =  meson.get_compiler('cpp').find_library(
         'crypto',
         dirs : join_paths(meson.source_root(),'lib/openssl/openssl_share_3.0.0/lib'),
-        version:'>=3.0.0',
         required:get_option('cpp-httplib_openssl')
     )
 if openssl_dep.found()
@@ -132,5 +130,6 @@ sources = [
 executable('dragon', 
             sources,
             # cpp_args:cpp_args,
+            link_args : ['-ldl'],
             dependencies:cpp_httplib_dep,
             include_directories:includes)
