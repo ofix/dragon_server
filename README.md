@@ -1,8 +1,11 @@
-### Dragon server
-HTTPS Server based on (https://github.com/yhirose/cpp-httplib)[https://github.com/yhirose/cpp-httplib]
+## Dragon server
 
-### issue
-1. how to build openssl-3.0.0 ?
+HTTPS Server based on [https://github.com/yhirose/cpp-httplib](https://github.com/yhirose/cpp-httplib)
+
+## issues
+
+#### how to build openssl-3.0.0 ?
+
 ```shell
 tar xzvf openssl-3.0.0.tar.gz
 cd openssl-3.0.0
@@ -14,8 +17,10 @@ make test
 make install
 ```
 
-2. link error: DSO missing from command line
-**cpp-httplib** depend on openssl (version >=3.0.0) shared library, *NOT static library* you should add custom openssl lib position as following:
+#### link error: DSO missing from command line
+
+**cpp-httplib** depend on openssl (version >=3.0.0) shared library, _NOT static library_ you should add custom openssl lib position as following:
+
 ```shell
 openssl_dep = meson.get_compiler('cpp').find_library(
         'ssl',
@@ -25,8 +30,10 @@ openssl_dep = meson.get_compiler('cpp').find_library(
     )
 ```
 
-3. link error: lib/libcrypto.so.3: error adding symbols: DSO missing from command
+#### link error: lib/libcrypto.so.3: error adding symbols: DSO missing from command
+
 **cpp-httplib** can't found libcrypto.so shared library (version >=3.0.0), you should add it as following in meson.build file
+
 ```shell
 crypto_dep =  meson.get_compiler('cpp').find_library(
         'crypto',
