@@ -18,7 +18,7 @@ tar xzvf openssl-3.0.13.tar.gz
 cd openssl-3.0.13
 mkdir build
 cd build
-../Configure --prefix=/home/greatwall/work/dragon_server/lib/openssl/openssl_dynamic_3.0.13
+../Configure --prefix=/home/greatwall/work/dragon_server/lib/openssl/openssl_share_3.0.13
 make -j8
 make test
 make install
