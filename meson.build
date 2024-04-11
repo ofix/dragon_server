@@ -124,7 +124,10 @@ endif
 sources = [
     'src/App.cpp',
     'src/DragonServer.cpp',
+    'src/EasyLogger.cpp',
     'src/FileUtils.cpp',
+    'src/ConsoleTable.cpp',
+    'src/Global.cpp',
     'lib/jsoncpp.cpp']
 
 executable('dragon', 
