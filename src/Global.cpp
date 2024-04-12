@@ -27,7 +27,7 @@ std::string now() {
     struct tm time;
     char buf[80];
     time = *localtime(&now);
-    strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &time);
+    strftime(buf, sizeof(buf), "%Y-%m-%d %X", &time);
     return buf;
 }
 
@@ -60,9 +60,8 @@ std::vector<std::string> split(const std::string& str, const char& separator) {
  * @author songhuabiao@greatwall.com.cn
  */
 void ltrim(std::string& str) {
-    str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](unsigned char ch) {
-                  return !std::isspace(ch);
-              }));
+    str.erase(str.begin(), std::find_if(str.begin(), str.end(),
+                                        [](unsigned char ch) { return !std::isspace(ch); }));
 }
 
 /**
@@ -71,10 +70,10 @@ void ltrim(std::string& str) {
  * @author songhuabiao@greatwall.com.cn
  */
 void rtrim(std::string& str) {
-    str.erase(std::find_if(str.rbegin(), str.rend(),
-                           [](unsigned char ch) { return !std::isspace(ch); })
-                  .base(),
-              str.end());
+    str.erase(
+        std::find_if(str.rbegin(), str.rend(), [](unsigned char ch) { return !std::isspace(ch); })
+            .base(),
+        str.end());
 }
 
 /**
@@ -134,10 +133,7 @@ void padding_right(std::string& str, uint size, const char needle) {
     str.insert(str.length(), size - str.length(), needle);
 }
 
-void fill_chars(std::string& str,
-                const char needle,
-                size_t width,
-                const std::string direction) {
+void fill_chars(std::string& str, const char needle, size_t width, const std::string direction) {
     size_t n = width - str.length();
     if (n > 0) {
         std::string spaces = repeat_chars(needle, n);

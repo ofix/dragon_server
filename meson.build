@@ -127,6 +127,7 @@ sources = [
     'src/EasyLogger.cpp',
     'src/FileUtils.cpp',
     'src/ConsoleTable.cpp',
+    'src/Base64.cpp',
     'src/Global.cpp',
     'lib/jsoncpp.cpp']
 

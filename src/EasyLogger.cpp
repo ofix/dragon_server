@@ -33,20 +33,23 @@ void EasyLogger::log(const char* format, ...) {
 #else
     vsprintf(message, format, args);
 #endif
-    m_logFile << now() << ":\t";
+    m_logFile << now() << "\t";
     m_logFile << message << "\n";
+    m_logFile.flush();  // 立即写入到硬盘，否则可能只创建一个空文件，并没有写入任何内容
     va_end(args);
-
+    std::cout << now() << "\t";
+    std::cout << message << "\n";
     delete[] message;
 }
 
 void EasyLogger::log(const string& message) {
-    m_logFile << now() << ":\t";
+    m_logFile << now() << "\t";
     m_logFile << message << "\n";
+    m_logFile.flush();
 }
 
 EasyLogger& EasyLogger::operator<<(const string& message) {
-    m_logFile << "\n" << now() << ":\t";
+    m_logFile << "\n" << now() << "\t";
     m_logFile << message << "\n";
     return *this;
 }
