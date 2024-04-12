@@ -16,19 +16,20 @@ EasyLogger* EasyLogger::Instance() {
 
 void EasyLogger::log(const char* format, ...) {
     char* message = NULL;
-    int nLength = 0;
+    int nSize = 0;
     va_list args;
     va_start(args, format);
 
+// 计算缓存大小
 #ifdef _WIN32
-    nLength = _vscprintf(format, args) + 1;
+    nSize = _vscprintf(format, args) + 1;
 #else
-    nLength = vsnprintf(NULL, 0, format, args) + 1;
+    nSize = vsnprintf(NULL, 0, format, args) + 1;  // 计算格式化的字符串需要保存的空间大小
 #endif
-    message = new char[nLength];
-    memset(message, 0, nLength);
+    message = new char[nSize];
+    memset(message, 0, nSize);
 #ifdef _WIN32
-    vsprintf_s(message, nLength, format, args);
+    vsprintf_s(message, nSize, format, args);
 #else
     vsprintf(message, format, args);
 #endif
