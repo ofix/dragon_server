@@ -125,6 +125,7 @@ sources = [
     'src/App.cpp',
     'src/DragonServer.cpp',
     'src/EasyLogger.cpp',
+    'src/Request.cpp',
     'src/FileUtils.cpp',
     'src/ConsoleTable.cpp',
     'src/Base64.cpp',

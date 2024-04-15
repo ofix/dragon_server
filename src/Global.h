@@ -15,13 +15,6 @@ typedef struct _cell_size {
     uint16_t ncols;
 } cell_size;
 
-typedef struct _url_token {
-    std::string protocol;
-    std::string hostname;
-    int port;
-    std::string path;
-} Url;
-
 std::string exec(const char* cmd);
 std::string now();
 std::vector<std::string> split(const std::string& str, const char& separator = '\n');
