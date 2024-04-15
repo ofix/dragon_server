@@ -2,7 +2,6 @@
 
 #include <fstream>
 #include <string>
-#include "Global.h"
 
 namespace Dragon {
 struct Url {

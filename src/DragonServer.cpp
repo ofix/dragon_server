@@ -18,10 +18,11 @@ bool DragonServer::loadDataDir() {
 }
 
 void DragonServer::installServerErrorHandlers() {
-    // m_server.set_logger([](const httplib::Request& request, const httplib::Response& response) {
-    //     std::string path = request.path;
-    //     gLogger->log("path:%s, method:%s", path.c_str(), request.method.c_str());
-    // });
+    m_server.set_logger([](const httplib::Request& request, const httplib::Response& response) {
+        std::string path = request.path;
+        std::cout << "[bmc] url: " << path << std::endl;
+        gLogger->log("path:%s, method:%s", path.c_str(), request.method.c_str());
+    });
     m_server.set_error_handler([](const httplib::Request& request, httplib::Response& response) {
         auto fmt = "<p>Error Status: <span style='color:red;'>%d</span></p>";
         char buf[BUFSIZ];
@@ -213,8 +214,15 @@ void DragonServer::processForwardResponse(httplib::Result& forward_result,
     root["DragonMeta"] = origin_request_body;
     std::string parameters = toJson(origin_request_body);
     std::string result = toJson(root);
+    // 允许跨域访问
+    origin_response.set_header("Access-Control-Allow-Origin", "*");
+    origin_response.set_header("Access-Control-Allow-Methods",
+                               "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+    origin_response.set_header("Access-Control-Allow-Headers",
+                               "Origin, Content-Type, X-Auth-Token");
+    // 返回响应
     origin_response.set_content(result, "application/json");
-    // 添加请求到缓存
+    // 添加请求到缓存"
     addRequest(origin_request.method, url, parameters, result, status_code);
     // 将响应结果打印到控制台
     std::cout << result << std::endl;
