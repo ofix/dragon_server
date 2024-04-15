@@ -215,9 +215,11 @@ void DragonServer::processForwardResponse(httplib::Result& forward_result,
     std::string parameters = toJson(origin_request_body);
     std::string result = toJson(root);
     // 允许跨域访问
-    origin_response.set_header("Access-Control-Allow-Origin", "*");
+    origin_response.set_header("Access-Control-Allow-Origin",
+                               origin_request.get_header_value("origin"));
     origin_response.set_header("Access-Control-Allow-Methods",
                                "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+    origin_response.set_header("Access-Control-Allow-Credentials", "true");
     origin_response.set_header("Access-Control-Allow-Headers",
                                "Origin, Content-Type, X-Auth-Token");
     // 返回响应
