@@ -35,6 +35,7 @@ class DragonServer {
                     const std::string& parameters,
                     const std::string& response,
                     const int response_code);
+    void outputRequestDebugInfo(const httplib::Request& request, httplib::Response& response);
     std::string getRequestHost();
     // 保存所有请求到文件
     bool saveRequestsToFile();

@@ -1,5 +1,6 @@
 #include "DragonServer.h"
 #include "Base64.h"
+#include "Color.h"
 #include "FileUtils.h"
 
 DragonServer::DragonServer() : m_server{"./dragon.crt", "./dragon.pem"} {}
@@ -18,11 +19,6 @@ bool DragonServer::loadDataDir() {
 }
 
 void DragonServer::installServerErrorHandlers() {
-    m_server.set_logger([](const httplib::Request& request, const httplib::Response& response) {
-        std::string path = request.path;
-        std::cout << "[bmc] url: " << path << std::endl;
-        gLogger->log("path:%s, method:%s", path.c_str(), request.method.c_str());
-    });
     m_server.set_error_handler([](const httplib::Request& request, httplib::Response& response) {
         auto fmt = "<p>Error Status: <span style='color:red;'>%d</span></p>";
         char buf[BUFSIZ];
@@ -131,11 +127,13 @@ std::string DragonServer::httpBaiscAuthentication(const std::string& username,
 void DragonServer::forward(const httplib::Request& request, httplib::Response& response) {
     if (!request.has_param("redirect_url")) {
         response.set_content("parameter redirect_url missing!", "text/plain");
+        std::string error = "redirect_url not found!";
+        std::cerr << RED(error) << std::endl;
         return;
     }
     const std::string path = request.get_param_value("redirect_url");
     gLogger->log("[bmc] %s, %s\n", request.method.c_str(), path.c_str());
-    gLogger->log("[bmc] %s\n", request.body.c_str());
+
     std::string basic = httpBaiscAuthentication("root", "0penBmc");
     httplib::Headers headers = {{"Authorization", basic}, {"Accept", "*/*"}};
     Dragon::Url url = parseUrl(path);
@@ -154,7 +152,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
         }
     } else if (request.method == "POST") {
         if (auto res = client.Post(url.path, headers, request.body, "application/json")) {
-            if (res->status == StatusCode::OK_200) {
+            if (res->status == StatusCode::OK_200 || res->status == StatusCode::Created_201) {
                 processForwardResponse(res, url, res->status, request, response);
             } else {
                 auto err = res.error();
@@ -237,10 +235,41 @@ void DragonServer::processForwardResponse(httplib::Result& forward_result,
                                "Origin, Content-Type, X-Auth-Token, X-XSRF-TOKEN");
     // 返回响应
     origin_response.set_content(result, "application/json");
+    origin_response.status = forward_result->status;
     // 添加请求到缓存"
     addRequest(origin_request.method, url, parameters, result, status_code);
     // 将响应结果打印到控制台
-    std::cout << result << std::endl;
+    outputRequestDebugInfo(origin_request, origin_response);
+}
+
+// 打印调试信息
+void DragonServer::outputRequestDebugInfo(const httplib::Request& request,
+                                          httplib::Response& response) {
+    const std::string path = request.get_param_value("redirect_url");
+    std::string clr_url = "";
+    std::string request_url = now() + " [bmc] " + request.method + ", " + path;
+    if (request.method == "GET") {
+        clr_url = GREEN(request_url);
+    } else if (request.method == "POST") {
+        clr_url = YELLOW(request_url);
+    } else if (request.method == "PATCH") {
+        clr_url = BLUE(request_url);
+    } else if (request.method == "PUT") {
+        clr_url = MAGENTA(request_url);
+    } else if (request.method == "DELETE") {
+        clr_url = RED(request_url);
+    } else {
+        clr_url = request_url;
+    }
+    std::cout << clr_url << std::endl;
+
+    if (request.body.length() > 0) {
+        gLogger->log("[bmc] payload: %s\n", request.body.c_str());
+        std::string payload = now() + " [bmc] payload: " + request.body;
+        std::cout << YELLOW(payload) << std::endl;
+    }
+
+    std::cout << response.body << std::endl;
 }
 
 void DragonServer::addRequest(const std::string& method,
@@ -293,7 +322,7 @@ bool DragonServer::parseJson(const std::string& s, Json::Value& v) {
     std::string errs;
     bool parsingSuccessful = Json::parseFromStream(readerBuilder, iss, &v, &errs);
     if (!parsingSuccessful) {
-        std::cerr << "Failed to parse JSON: " << errs << std::endl;
+        std::cerr << "Failed to parse JSON: " << errs << "origin data: " << s << std::endl;
         return false;
     }
     return true;
