@@ -66,6 +66,8 @@ void DragonServer::run() {
     m_server.Delete("/proxy", [this](const httplib::Request& request, httplib::Response& response) {
         forward(request, response);
     });
+    m_server.Options("/proxy", [this](const httplib::Request& request,
+                                      httplib::Response& response) { forward(request, response); });
     std::string version{"0.5"};
     copyright(version);
     m_server.listen("localhost", 8888);
@@ -190,6 +192,17 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
                           << ",HTTP error: " << httplib::to_string(err) << std::endl;
             }
         }
+    } else if (request.method == "OPTIONS") {
+        // 允许跨域访问
+        response.set_header("Access-Control-Allow-Origin", request.get_header_value("origin"));
+        response.set_header("Access-Control-Allow-Methods",
+                            "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+        response.set_header("Access-Control-Allow-Credentials", "true");
+        response.set_header("Access-Control-Allow-Headers",
+                            "Origin, Content-Type, X-Auth-Token, X-XSRF-TOKEN");
+        // 解决CORS跨域，浏览器每次发送真实请求前，会额外方式一次OPTION请求,返回HTTP CODE
+        // 200,数据任意字符即可
+        response.set_content("{}", "application/json");
     }
 }
 
@@ -221,7 +234,7 @@ void DragonServer::processForwardResponse(httplib::Result& forward_result,
                                "GET, POST, PATCH, PUT, DELETE, OPTIONS");
     origin_response.set_header("Access-Control-Allow-Credentials", "true");
     origin_response.set_header("Access-Control-Allow-Headers",
-                               "Origin, Content-Type, X-Auth-Token");
+                               "Origin, Content-Type, X-Auth-Token, X-XSRF-TOKEN");
     // 返回响应
     origin_response.set_content(result, "application/json");
     // 添加请求到缓存"
