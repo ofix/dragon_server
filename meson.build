@@ -121,6 +121,19 @@ endif
 
 ###############################################################
 
+# 拷贝配置文件到build目录
+config_files = [
+    'dragon.crt',
+    'dragon.key',
+    'dragon.ini'
+]
+
+foreach file : config_files
+    configure_file(input : './src/config/'+file,
+    output : file,
+    copy: true)
+endforeach
+
 sources = [
     'src/App.cpp',
     'src/DragonServer.cpp',

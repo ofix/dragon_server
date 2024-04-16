@@ -3,10 +3,23 @@
 #include "Color.h"
 #include "FileUtils.h"
 
-DragonServer::DragonServer() : m_server{"./dragon.crt", "./dragon.pem"} {}
+DragonServer::DragonServer() : m_server{"./dragon.crt", "./dragon.key"} {
+    loadIniConfigFile();
+}
 
 DragonServer::DragonServer(std::string& data_dir)
-    : m_data_dir{data_dir}, m_server{"./dragon.crt", "./dragon.pem"} {}
+    : m_data_dir{data_dir}, m_server{"./dragon.crt", "./dragon.key"} {
+    loadIniConfigFile();
+}
+
+void DragonServer::loadIniConfigFile() {
+    m_ini.load("dragon.ini");
+    m_accessControlAllowHeaders =
+        m_ini["Access-Control-Allow-Headers"]["Headers"].as<std::string>();
+    if (m_accessControlAllowHeaders.length() <= 0) {
+        m_accessControlAllowHeaders = "Origin, Content-Type, X-Auth-Token";
+    }
+}
 
 DragonServer::~DragonServer() {}
 
@@ -196,8 +209,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
         response.set_header("Access-Control-Allow-Methods",
                             "GET, POST, PATCH, PUT, DELETE, OPTIONS");
         response.set_header("Access-Control-Allow-Credentials", "true");
-        response.set_header("Access-Control-Allow-Headers",
-                            "Origin, Content-Type, X-Auth-Token, X-XSRF-TOKEN");
+        response.set_header("Access-Control-Allow-Headers", m_accessControlAllowHeaders);
         // 解决CORS跨域，浏览器每次发送真实请求前，会额外方式一次OPTION请求,返回HTTP CODE
         // 200,数据任意字符即可
         response.set_content("{}", "application/json");

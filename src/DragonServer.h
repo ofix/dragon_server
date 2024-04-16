@@ -4,6 +4,7 @@
 #include "../lib/httplib.h"
 #include "EasyLogger.h"
 #include "Global.h"
+#include "IniFile.h"
 #include "Request.h"
 #include "lib/json/json.h"
 #include "regex"
@@ -37,6 +38,7 @@ class DragonServer {
                     const int response_code);
     void outputRequestDebugInfo(const httplib::Request& request, httplib::Response& response);
     std::string getRequestHost();
+    void loadIniConfigFile();
     // 保存所有请求到文件
     bool saveRequestsToFile();
 
@@ -46,4 +48,6 @@ class DragonServer {
     std::vector<Dragon::Request> m_requests;
     std::vector<int> m_flushRequets;  // 用户勾选需要序列化的请求
     std::map<std::string, bool> m_cache;
+    ini::IniFile m_ini;  // 可配置选项
+    std::string m_accessControlAllowHeaders;
 };
