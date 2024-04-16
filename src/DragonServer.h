@@ -4,13 +4,13 @@
 #include <chrono>
 #include <ctime>
 #include <ratio>
+#include "../lib/httplib.h"
+#include "../lib/nlohmann/json.hpp"
+#include "../lib/nlohmann/json_fwd.hpp"
 #include "EasyLogger.h"
 #include "Global.h"
 #include "IniFile.h"
 #include "Request.h"
-#include "lib/httplib.h"
-#include "lib/nlohmann/json.hpp"
-#include "lib/nlohmann/json_fwd.hpp"
 #include "regex"
 
 using namespace httplib;

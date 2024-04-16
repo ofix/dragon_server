@@ -23,10 +23,7 @@ void DragonServer::loadIniConfigFile() {
     }
 }
 
-DragonServer::~DragonServer() {
-    std::cout << " save requests to file !!!" << std::endl;
-    saveRequestsToFile();
-}
+DragonServer::~DragonServer() {}
 
 bool DragonServer::loadDataDir() {
     std::vector<std::string> files = FileUtils::loadDir(m_data_dir, "json");
@@ -72,12 +69,20 @@ std::string DragonServer::serializeAllRequests() {
         item["url"] = url;
         item["method"] = request.method;
         item["status_code"] = request.status_code;
-        json parameters = json::parse(request.parameters);
-        item["parameters"] = parameters;
-        json response = json::parse(request.response);
-        item["response"] = response;
-        item["duration"] = request.duration;
-        item["request_time"] = request.request_time;
+        if (request.parameters != "") {
+            json parameters = json::parse(request.parameters);
+            item["parameters"] = parameters;
+        } else {
+            item["parameters"] = "";
+        }
+        if (request.response != "") {
+            json response = json::parse(request.response);
+            item["response"] = response;
+        } else {
+            item["response"] = "{}";
+        }
+        // item["duration"] = request.duration;
+        // item["request_time"] = request.request_time;
         result.push_back(item);
     }
     std::string data = result.dump(3);
@@ -85,8 +90,11 @@ std::string DragonServer::serializeAllRequests() {
 }
 
 bool DragonServer::saveRequestsToFile() {
+    if (m_requests.size() <= 0) {
+        return true;
+    }
     std::ofstream out;
-    out.open("dragon_data.json", ios::out | ios::app);
+    out.open("dragon_data.json", ios::out);
     out.clear();
     std::string data = serializeAllRequests();
     out << data;
@@ -115,8 +123,8 @@ bool DragonServer::loadRequestsFile() {
             request.parameters = parameters.dump(3);
             json response = (*it)["response"];
             request.response = response.dump(3);
-            request.request_time = (*it)["request_time"].template get<std::string>();
-            request.duration = (*it)["duration"].template get<int>();
+            // request.request_time = (*it)["request_time"].template get<std::string>();
+            // request.duration = (*it)["duration"].template get<int>();
             m_requests.push_back(request);
         }
     }
