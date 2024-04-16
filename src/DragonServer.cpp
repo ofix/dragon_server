@@ -81,8 +81,8 @@ std::string DragonServer::serializeAllRequests() {
         } else {
             item["response"] = "{}";
         }
-        // item["duration"] = request.duration;
-        // item["request_time"] = request.request_time;
+        item["duration"] = request.duration;
+        item["request_time"] = request.request_time;
         result.push_back(item);
     }
     std::string data = result.dump(3);
@@ -123,8 +123,8 @@ bool DragonServer::loadRequestsFile() {
             request.parameters = parameters.dump(3);
             json response = (*it)["response"];
             request.response = response.dump(3);
-            // request.request_time = (*it)["request_time"].template get<std::string>();
-            // request.duration = (*it)["duration"].template get<int>();
+            request.request_time = (*it)["request_time"].template get<std::string>();
+            request.duration = (*it)["duration"].template get<int64_t>();
             m_requests.push_back(request);
         }
     }
@@ -377,9 +377,11 @@ void DragonServer::outputRequestDebugInfo(const httplib::Request& request,
 
 std::string DragonServer::getFormatTime(const std::chrono::system_clock::time_point tp) {
     std::time_t time = std::chrono::system_clock::to_time_t(tp);
-    std::string ts = ctime(&time);
-    ts.resize(ts.size() - 1);
-    return ts;
+    // std::tm tm = *std::gmtime(&time);  // GMT (UTC)
+    std::tm tm = *std::localtime(&time);  // Locale time-zone, usually UTC by default.
+    std::stringstream ss;
+    ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+    return ss.str();
 }
 
 void DragonServer::addRequest(const std::string& method,
@@ -390,10 +392,8 @@ void DragonServer::addRequest(const std::string& method,
                               const std::chrono::system_clock::time_point request_time,
                               const std::chrono::system_clock::time_point response_time) {
     // 以ms为单位的请求响应耗时
-    std::chrono::duration<double, std::ratio<1, 1000>> diff = response_time - request_time;
-    // 以s为单位的请求响应耗时
-    // std::chrono::duration<double, std::ratio<1, 1>> diff_s = response_time - request_time;
-
+    auto diff =
+        std::chrono::duration_cast<chrono::milliseconds>(response_time - request_time).count();
     Dragon::Request request = {};
     request.method = method;
     request.url = url;
@@ -401,7 +401,7 @@ void DragonServer::addRequest(const std::string& method,
     request.status_code = response_code;
     request.response = response;
     request.request_time = getFormatTime(request_time);
-    request.duration = diff.count();  // 以ms为单位的请求响应耗时
+    request.duration = diff;  // 以ms为单位的请求响应耗时
     if (m_cache.find(method + url.path) == end(m_cache)) {
         m_cache.insert({method + url.path, true});
         m_requests.push_back(request);

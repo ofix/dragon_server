@@ -19,7 +19,7 @@ struct Request {
     std::string response;      // 响应内容
     int status_code;           // 请求状态码
     std::string request_time;  // 请求时间
-    std::string duration;      // 请求耗时
+    int64_t duration;          // 请求耗时
 };
 
 }  // namespace Dragon
