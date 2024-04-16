@@ -1,16 +1,20 @@
 #pragma once
 #include <string>
 #define CPPHTTPLIB_OPENSSL_SUPPORT
-#include "../lib/httplib.h"
+#include <chrono>
+#include <ctime>
+#include <ratio>
 #include "EasyLogger.h"
 #include "Global.h"
 #include "IniFile.h"
 #include "Request.h"
-#include "lib/json/json.h"
+#include "lib/httplib.h"
+#include "lib/nlohmann/json.hpp"
+#include "lib/nlohmann/json_fwd.hpp"
 #include "regex"
 
 using namespace httplib;
-
+using json = nlohmann::json;
 class DragonServer {
    public:
     DragonServer();
@@ -28,19 +32,24 @@ class DragonServer {
                                 const Dragon::Url& url,
                                 int status_code,
                                 const httplib::Request& origin_request,
-                                httplib::Response& origin_response);
-    bool parseJson(const std::string& s, Json::Value& v);
-    std::string toJson(Json::Value& v, bool pretty = true);
+                                httplib::Response& origin_response,
+                                const std::chrono::system_clock::time_point request_time);
+    std::string getFormatTime(const std::chrono::system_clock::time_point tp);
     void addRequest(const std::string& method,
                     const Dragon::Url& url,
                     const std::string& parameters,
                     const std::string& response,
-                    const int response_code);
+                    const int response_code,
+                    const std::chrono::system_clock::time_point request_time,
+                    const std::chrono::system_clock::time_point response_time);
     void outputRequestDebugInfo(const httplib::Request& request, httplib::Response& response);
+    std::string serializeAllRequests();
     std::string getRequestHost();
     void loadIniConfigFile();
     // 保存所有请求到文件
     bool saveRequestsToFile();
+    bool loadRequestsFile();
+    bool generateCode();
 
    private:
     std::string m_data_dir;       // json模拟数据目录

@@ -5,11 +5,13 @@
 
 DragonServer::DragonServer() : m_server{"./dragon.crt", "./dragon.key"} {
     loadIniConfigFile();
+    loadRequestsFile();
 }
 
 DragonServer::DragonServer(std::string& data_dir)
     : m_data_dir{data_dir}, m_server{"./dragon.crt", "./dragon.key"} {
     loadIniConfigFile();
+    loadRequestsFile();
 }
 
 void DragonServer::loadIniConfigFile() {
@@ -21,7 +23,10 @@ void DragonServer::loadIniConfigFile() {
     }
 }
 
-DragonServer::~DragonServer() {}
+DragonServer::~DragonServer() {
+    std::cout << " save requests to file !!!" << std::endl;
+    saveRequestsToFile();
+}
 
 bool DragonServer::loadDataDir() {
     std::vector<std::string> files = FileUtils::loadDir(m_data_dir, "json");
@@ -54,12 +59,81 @@ void DragonServer::installServerErrorHandlers() {
         });
 }
 
+// 序列化所有的请求
+std::string DragonServer::serializeAllRequests() {
+    json result = json::array();
+    for (auto request : m_requests) {
+        json item = json::object();
+        json url = json::object();
+        url["hostname"] = request.url.hostname;
+        url["port"] = request.url.port;
+        url["protocol"] = request.url.protocol;
+        url["path"] = request.url.path;
+        item["url"] = url;
+        item["method"] = request.method;
+        item["status_code"] = request.status_code;
+        json parameters = json::parse(request.parameters);
+        item["parameters"] = parameters;
+        json response = json::parse(request.response);
+        item["response"] = response;
+        item["duration"] = request.duration;
+        item["request_time"] = request.request_time;
+        result.push_back(item);
+    }
+    std::string data = result.dump(3);
+    return data;
+}
+
+bool DragonServer::saveRequestsToFile() {
+    std::ofstream out;
+    out.open("dragon_data.json", ios::out | ios::app);
+    out.clear();
+    std::string data = serializeAllRequests();
+    out << data;
+    out.flush();
+    out.close();
+    return true;
+}
+
+bool DragonServer::loadRequestsFile() {
+    std::string data = FileUtils::loadFile("dragon_data.json");
+    m_requests.clear();
+    if (data != "") {
+        json arr = json::parse(data);
+        for (json::iterator it = arr.begin(); it != arr.end(); ++it) {
+            Dragon::Request request;
+            Dragon::Url url;
+            json _url = (*it)["url"];
+            url.hostname = _url["hostname"].template get<std::string>();
+            url.protocol = _url["protocol"].template get<std::string>();
+            url.path = _url["path"].template get<std::string>();
+            url.port = _url["port"].template get<int>();
+            request.url = url;
+            request.status_code = (*it)["status_code"].template get<int>();
+            request.method = (*it)["method"].template get<std::string>();
+            json parameters = (*it)["parameters"];
+            request.parameters = parameters.dump(3);
+            json response = (*it)["response"];
+            request.response = response.dump(3);
+            request.request_time = (*it)["request_time"].template get<std::string>();
+            request.duration = (*it)["duration"].template get<int>();
+            m_requests.push_back(request);
+        }
+    }
+}
+
 void DragonServer::run() {
     loadDataDir();
     installServerErrorHandlers();
     m_server.Get("/", [this](const httplib::Request& request, httplib::Response& response) {
         response.set_content("dragon server is working!", "text/plain");
     });
+    // 返回所有监听的请求
+    m_server.Get("/all_requests",
+                 [this](const httplib::Request& request, httplib::Response& response) {
+                     std::string data = serializeAllRequests();
+                     response.set_content(data, "application/json");
+                 });
     m_server.Get("/proxy", [this](const httplib::Request& request, httplib::Response& response) {
         forward(request, response);
     });
@@ -144,9 +218,9 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
         std::cerr << RED(error) << std::endl;
         return;
     }
+    auto requst_time = std::chrono::high_resolution_clock::now();
     const std::string path = request.get_param_value("redirect_url");
     gLogger->log("[bmc] %s, %s\n", request.method.c_str(), path.c_str());
-
     std::string basic = httpBaiscAuthentication("root", "0penBmc");
     httplib::Headers headers = {{"Authorization", basic}, {"Accept", "*/*"}};
     Dragon::Url url = parseUrl(path);
@@ -156,7 +230,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     if (request.method == "GET") {
         if (auto res = client.Get(url.path, headers)) {
             if (res->status == StatusCode::OK_200) {
-                processForwardResponse(res, url, res->status, request, response);
+                processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
                 auto err = res.error();
                 std::cout << "Status code:" << res->status
@@ -166,7 +240,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     } else if (request.method == "POST") {
         if (auto res = client.Post(url.path, headers, request.body, "application/json")) {
             if (res->status == StatusCode::OK_200 || res->status == StatusCode::Created_201) {
-                processForwardResponse(res, url, res->status, request, response);
+                processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
                 auto err = res.error();
                 std::cout << "Status code:" << res->status
@@ -176,7 +250,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     } else if (request.method == "PATCH") {
         if (auto res = client.Patch(url.path, headers, request.body, "application/json")) {
             if (res->status == StatusCode::OK_200) {
-                processForwardResponse(res, url, res->status, request, response);
+                processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
                 auto err = res.error();
                 std::cout << "Status code:" << res->status
@@ -186,7 +260,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     } else if (request.method == "PUT") {
         if (auto res = client.Put(url.path, headers, request.body, "application/json")) {
             if (res->status == StatusCode::OK_200) {
-                processForwardResponse(res, url, res->status, request, response);
+                processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
                 auto err = res.error();
                 std::cout << "Status code:" << res->status
@@ -196,7 +270,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     } else if (request.method == "DELETE") {
         if (auto res = client.Delete(url.path, headers, request.body, "application/json")) {
             if (res->status == StatusCode::OK_200) {
-                processForwardResponse(res, url, res->status, request, response);
+                processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
                 auto err = res.error();
                 std::cout << "Status code:" << res->status
@@ -224,34 +298,43 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
  * @param origin_request 原始的转发请求
  * @param origin_response 原始的转发响应
  */
-void DragonServer::processForwardResponse(httplib::Result& forward_result,
-                                          const Dragon::Url& url,
-                                          int status_code,
-                                          const httplib::Request& origin_request,
-                                          httplib::Response& origin_response) {
+void DragonServer::processForwardResponse(
+    httplib::Result& forward_result,
+    const Dragon::Url& url,
+    int status_code,
+    const httplib::Request& origin_request,
+    httplib::Response& origin_response,
+    const std::chrono::system_clock::time_point request_time) {
+    auto response_time = std::chrono::high_resolution_clock::now();
     // 将返回的结果序列化为JSON
-    Json::Value root;
-    parseJson(forward_result->body, root);
-    Json::Value origin_request_body;
-    parseJson(origin_request.body, origin_request_body);
-    root["DragonMeta"] = origin_request_body;
-    std::string parameters = toJson(origin_request_body);
-    std::string result = toJson(root);
-    // 允许跨域访问
-    origin_response.set_header("Access-Control-Allow-Origin",
-                               origin_request.get_header_value("origin"));
-    origin_response.set_header("Access-Control-Allow-Methods",
-                               "GET, POST, PATCH, PUT, DELETE, OPTIONS");
-    origin_response.set_header("Access-Control-Allow-Credentials", "true");
-    origin_response.set_header("Access-Control-Allow-Headers",
-                               "Origin, Content-Type, X-Auth-Token, X-XSRF-TOKEN");
-    // 返回响应
-    origin_response.set_content(result, "application/json");
-    origin_response.status = forward_result->status;
-    // 添加请求到缓存"
-    addRequest(origin_request.method, url, parameters, result, status_code);
-    // 将响应结果打印到控制台
-    outputRequestDebugInfo(origin_request, origin_response);
+    try {
+        json root = json::parse(forward_result->body);
+        if (origin_request.body != "") {
+            json origin_request_body = json::parse(origin_request.body);
+            root["_dragon_meta_"] = origin_request_body;
+        } else {
+            root["_dragon_meta_"] = "";
+        }
+        std::string result = root.dump(3);
+        // 允许跨域访问
+        origin_response.set_header("Access-Control-Allow-Origin",
+                                   origin_request.get_header_value("origin"));
+        origin_response.set_header("Access-Control-Allow-Methods",
+                                   "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+        origin_response.set_header("Access-Control-Allow-Credentials", "true");
+        origin_response.set_header("Access-Control-Allow-Headers",
+                                   "Origin, Content-Type, X-Auth-Token, X-XSRF-TOKEN");
+        // 返回响应
+        origin_response.set_content(result, "application/json");
+        origin_response.status = forward_result->status;
+        // 添加请求到缓存"
+        addRequest(origin_request.method, url, origin_request.body, result, status_code,
+                   request_time, response_time);
+        // 将响应结果打印到控制台
+        outputRequestDebugInfo(origin_request, origin_response);
+    } catch (json::parse_error& error) {
+        std::cerr << error.what() << std::endl;
+    }
 }
 
 // 打印调试信息
@@ -284,17 +367,33 @@ void DragonServer::outputRequestDebugInfo(const httplib::Request& request,
     std::cout << response.body << std::endl;
 }
 
+std::string DragonServer::getFormatTime(const std::chrono::system_clock::time_point tp) {
+    std::time_t time = std::chrono::system_clock::to_time_t(tp);
+    std::string ts = ctime(&time);
+    ts.resize(ts.size() - 1);
+    return ts;
+}
+
 void DragonServer::addRequest(const std::string& method,
                               const Dragon::Url& url,
                               const std::string& parameters,
                               const std::string& response,
-                              const int response_code) {
+                              const int response_code,
+                              const std::chrono::system_clock::time_point request_time,
+                              const std::chrono::system_clock::time_point response_time) {
+    // 以ms为单位的请求响应耗时
+    std::chrono::duration<double, std::ratio<1, 1000>> diff = response_time - request_time;
+    // 以s为单位的请求响应耗时
+    // std::chrono::duration<double, std::ratio<1, 1>> diff_s = response_time - request_time;
+
     Dragon::Request request = {};
     request.method = method;
     request.url = url;
     request.parameters = parameters;
-    request.code = response_code;
+    request.status_code = response_code;
     request.response = response;
+    request.request_time = getFormatTime(request_time);
+    request.duration = diff.count();  // 以ms为单位的请求响应耗时
     if (m_cache.find(method + url.path) == end(m_cache)) {
         m_cache.insert({method + url.path, true});
         m_requests.push_back(request);
@@ -308,9 +407,9 @@ std::string DragonServer::getRequestHost() {
     return "";
 }
 
-bool DragonServer::saveRequestsToFile() {
+bool DragonServer::generateCode() {
     std::ofstream out;
-    out.open("dragon_request_" + getRequestHost() + ".json", ios::out | ios::app);
+    out.open("dragon_code_" + getRequestHost() + ".json", ios::out | ios::app);
     out.clear();                      // 清空已有数据
     if (m_flushRequets.size() > 0) {  // 刷新用户设置的请求
         for (size_t i = 0; i < m_requests.size(); i++) {
@@ -326,28 +425,6 @@ bool DragonServer::saveRequestsToFile() {
     out.flush();
     out.close();
     return true;
-}
-
-bool DragonServer::parseJson(const std::string& s, Json::Value& v) {
-    Json::CharReaderBuilder readerBuilder;
-    std::istringstream iss(s);
-    std::string errs;
-    bool parsingSuccessful = Json::parseFromStream(readerBuilder, iss, &v, &errs);
-    if (!parsingSuccessful) {
-        std::cerr << "Failed to parse JSON: " << errs << "origin data: " << s << std::endl;
-        return false;
-    }
-    return true;
-}
-
-std::string DragonServer::toJson(Json::Value& v, bool pretty) {
-    if (pretty) {
-        Json::StreamWriterBuilder writer;
-        return Json::writeString(writer, v);
-    } else {
-        Json::FastWriter fastWriter;
-        return fastWriter.write(v);
-    }
 }
 
 void DragonServer::copyright(std::string& version) {

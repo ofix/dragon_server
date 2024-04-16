@@ -13,11 +13,13 @@ struct Url {
 struct Request {
    public:
     void flush(std::ofstream& out);
-    std::string method;
-    Url url;
-    std::string parameters;
-    std::string response;
-    int code;
+    std::string method;        // 请求方法
+    Url url;                   // 请求URL路径
+    std::string parameters;    // 请求参数
+    std::string response;      // 响应内容
+    int status_code;           // 请求状态码
+    std::string request_time;  // 请求时间
+    std::string duration;      // 请求耗时
 };
 
 }  // namespace Dragon
