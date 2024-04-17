@@ -363,9 +363,9 @@ void DragonServer::processForwardResponse(
         json root = json::parse(forward_result->body);
         if (origin_request.body != "") {
             json origin_request_body = json::parse(origin_request.body);
-            root["_dragon_meta_"] = origin_request_body;
+            root["@dragon_extra"] = origin_request_body;
         } else {
-            root["_dragon_meta_"] = "";
+            root["@dragon_extra"] = "";
         }
         std::string result = root.dump(4);
         // 允许跨域访问
