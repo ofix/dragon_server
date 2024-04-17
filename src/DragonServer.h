@@ -44,19 +44,24 @@ class DragonServer {
                     const std::chrono::system_clock::time_point response_time);
     void outputRequestDebugInfo(const httplib::Request& request, httplib::Response& response);
     std::string serializeAllRequests();
+    json getRequestJson(Dragon::Request& request);
     std::string getRequestHost();
     void loadIniConfigFile();
     // 保存所有请求到文件
     bool saveRequestsToFile();
     bool loadRequestsFile();
     bool generateCode();
+    void outputResponseError(httplib::Result& result);
 
    private:
     std::string m_data_dir;       // json模拟数据目录
     httplib::SSLServer m_server;  // HTTPS 服务端
     std::vector<Dragon::Request> m_requests;
     std::vector<int> m_flushRequets;  // 用户勾选需要序列化的请求
-    std::map<std::string, bool> m_cache;
+    std::map<std::string, int16_t> m_cache;
     ini::IniFile m_ini;  // 可配置选项
     std::string m_accessControlAllowHeaders;
+    std::string m_authUser;
+    std::string m_authPwd;
+    uint16_t m_serverPort;
 };
