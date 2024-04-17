@@ -19,7 +19,11 @@ void DragonServer::loadIniConfigFile() {
     m_accessControlAllowHeaders =
         m_ini["Access-Control-Allow-Headers"]["Headers"].as<std::string>();
     if (m_accessControlAllowHeaders.length() <= 0) {
-        m_accessControlAllowHeaders = "Origin, Content-Type, X-Auth-Token";
+        m_accessControlAllowHeaders = "Origin, Content-Type, X-Auth-Token, X-Dragon-Extra";
+    } else {
+        if (m_accessControlAllowHeaders.find("X-Dragon-Extra") == std::string::npos) {
+            m_accessControlAllowHeaders += ", X-Dragon-Extra";
+        }
     }
     m_authUser = m_ini["Authentication"]["username"].as<std::string>();
     if (m_authUser.length() <= 0) {
@@ -370,8 +374,8 @@ void DragonServer::processForwardResponse(
         origin_response.set_header("Access-Control-Allow-Methods",
                                    "GET, POST, PATCH, PUT, DELETE, OPTIONS");
         origin_response.set_header("Access-Control-Allow-Credentials", "true");
-        origin_response.set_header("Access-Control-Allow-Headers",
-                                   "Origin, Content-Type, X-Auth-Token, X-XSRF-TOKEN");
+        origin_response.set_header("Access-Control-Allow-Headers", m_accessControlAllowHeaders);
+        origin_response.set_header("X-Dragon-Extra", origin_request.body);  // 返回用户传递的参数
         // 返回响应
         origin_response.set_content(result, "application/json");
         origin_response.status = forward_result->status;
