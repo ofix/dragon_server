@@ -40,8 +40,8 @@ class DragonServer {
                     const std::string& parameters,
                     const std::string& response,
                     const int response_code,
-                    const std::chrono::system_clock::time_point request_time,
-                    const std::chrono::system_clock::time_point response_time);
+                    std::string pretty_request_time,
+                    int64_t duration);
     void outputRequestDebugInfo(const httplib::Request& request, httplib::Response& response);
     std::string serializeAllRequests();
     json getRequestJson(Dragon::Request& request);

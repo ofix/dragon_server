@@ -363,10 +363,17 @@ void DragonServer::processForwardResponse(
         json root = json::parse(forward_result->body);
         if (origin_request.body != "") {
             json origin_request_body = json::parse(origin_request.body);
-            root["@dragon_extra"] = origin_request_body;
+            root["@dragon.parameters"] = origin_request_body;
         } else {
-            root["@dragon_extra"] = "";
+            root["@dragon.parameters"] = "";
         }
+        auto duration =
+            std::chrono::duration_cast<chrono::milliseconds>(response_time - request_time).count();
+        std::string pretty_request_time = getFormatTime(request_time);
+        root["@dragon.request_time"] = pretty_request_time;
+        root["@dragon.duration"] = duration;
+        root["@dragon.status_code"] = status_code;
+
         std::string result = root.dump(4);
         // 允许跨域访问
         origin_response.set_header("Access-Control-Allow-Origin",
@@ -381,7 +388,7 @@ void DragonServer::processForwardResponse(
         origin_response.status = forward_result->status;
         // 添加请求到缓存"
         addRequest(origin_request.method, url, origin_request.body, result, status_code,
-                   request_time, response_time);
+                   pretty_request_time, duration);
         // 将响应结果打印到控制台
         outputRequestDebugInfo(origin_request, origin_response);
     } catch (json::parse_error& error) {
@@ -433,19 +440,16 @@ void DragonServer::addRequest(const std::string& method,
                               const std::string& parameters,
                               const std::string& response,
                               const int response_code,
-                              const std::chrono::system_clock::time_point request_time,
-                              const std::chrono::system_clock::time_point response_time) {
-    // 以ms为单位的请求响应耗时
-    auto diff =
-        std::chrono::duration_cast<chrono::milliseconds>(response_time - request_time).count();
+                              std::string pretty_request_time,
+                              int64_t duration) {
     Dragon::Request request = {};
     request.method = method;
     request.url = url;
     request.parameters = parameters;
     request.status_code = response_code;
     request.response = response;
-    request.request_time = getFormatTime(request_time);
-    request.duration = diff;  // 以ms为单位的请求响应耗时
+    request.request_time = pretty_request_time;
+    request.duration = duration;  // 以ms为单位的请求响应耗时
     if (m_cache.find(method + url.hostname + url.path) == std::end(m_cache)) {
         m_requests.push_back(request);
         std::size_t nIndex = m_requests.size() - 1;
