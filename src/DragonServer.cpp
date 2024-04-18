@@ -90,23 +90,23 @@ json DragonServer::getRequestJson(Dragon::Request& request) {
     url["port"] = request.url.port;
     url["protocol"] = request.url.protocol;
     url["path"] = request.url.path;
-    item["url"] = url;
-    item["method"] = request.method;
-    item["status_code"] = request.status_code;
+    item["@dragon.url"] = url;
+    item["@dragon.method"] = request.method;
+    item["@dragon.status_code"] = request.status_code;
     if (request.parameters != "") {
         json parameters = json::parse(request.parameters);
-        item["parameters"] = parameters;
+        item["@dragon.parameters"] = parameters;
     } else {
-        item["parameters"] = "";
+        item["@dragon.parameters"] = "";
     }
     if (request.response != "") {
         json response = json::parse(request.response);
-        item["response"] = response;
+        item["@dragon.response"] = response;
     } else {
-        item["response"] = "{}";
+        item["@dragon.response"] = "{}";
     }
-    item["duration"] = request.duration;
-    item["request_time"] = request.request_time;
+    item["@dragon.duration"] = request.duration;
+    item["@dragon.request_time"] = request.request_time;
     return item;
 }
 
@@ -361,20 +361,9 @@ void DragonServer::processForwardResponse(
     // 将返回的结果序列化为JSON
     try {
         json root = json::parse(forward_result->body);
-        if (origin_request.body != "") {
-            json origin_request_body = json::parse(origin_request.body);
-            root["@dragon.parameters"] = origin_request_body;
-        } else {
-            root["@dragon.parameters"] = "";
-        }
         auto duration =
             std::chrono::duration_cast<chrono::milliseconds>(response_time - request_time).count();
         std::string pretty_request_time = getFormatTime(request_time);
-        root["@dragon.request_time"] = pretty_request_time;
-        root["@dragon.duration"] = duration;
-        root["@dragon.status_code"] = status_code;
-
-        std::string result = root.dump(4);
         // 允许跨域访问
         origin_response.set_header("Access-Control-Allow-Origin",
                                    origin_request.get_header_value("origin"));
@@ -384,11 +373,11 @@ void DragonServer::processForwardResponse(
         origin_response.set_header("Access-Control-Allow-Headers", m_accessControlAllowHeaders);
         origin_response.set_header("X-Dragon-Extra", origin_request.body);  // 返回用户传递的参数
         // 返回响应
-        origin_response.set_content(result, "application/json");
+        origin_response.set_content(forward_result->body, "application/json");
         origin_response.status = forward_result->status;
         // 添加请求到缓存"
-        addRequest(origin_request.method, url, origin_request.body, result, status_code,
-                   pretty_request_time, duration);
+        addRequest(origin_request.method, url, origin_request.body, forward_result->body,
+                   status_code, pretty_request_time, duration);
         // 将响应结果打印到控制台
         outputRequestDebugInfo(origin_request, origin_response);
     } catch (json::parse_error& error) {
