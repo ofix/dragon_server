@@ -133,20 +133,20 @@ bool DragonServer::loadRequestsFile() {
         for (json::iterator it = arr.begin(); it != arr.end(); ++it) {
             Dragon::Request request;
             Dragon::Url url;
-            json _url = (*it)["url"];
+            json _url = (*it)["@dragon.url"];
             url.hostname = _url["hostname"].template get<std::string>();
             url.protocol = _url["protocol"].template get<std::string>();
             url.path = _url["path"].template get<std::string>();
             url.port = _url["port"].template get<int>();
             request.url = url;
-            request.status_code = (*it)["status_code"].template get<int>();
-            request.method = (*it)["method"].template get<std::string>();
-            json parameters = (*it)["parameters"];
+            request.status_code = (*it)["@dragon.status_code"].template get<int>();
+            request.method = (*it)["@dragon.method"].template get<std::string>();
+            json parameters = (*it)["@dragon.parameters"];
             request.parameters = parameters.dump(4);
-            json response = (*it)["response"];
+            json response = (*it)["@dragon.response"];
             request.response = response.dump(4);
-            request.request_time = (*it)["request_time"].template get<std::string>();
-            request.duration = (*it)["duration"].template get<int64_t>();
+            request.request_time = (*it)["@dragon.request_time"].template get<std::string>();
+            request.duration = (*it)["@dragon.duration"].template get<int64_t>();
             m_requests.push_back(request);
             size_t nIndex = m_requests.size() - 1;
             m_cache.insert(
