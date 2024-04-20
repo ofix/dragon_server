@@ -26,8 +26,8 @@ class DragonServer {
     Dragon::Url parseUrl(const std::string& path);
     void installServerErrorHandlers();
     std::string httpBaiscAuthentication(const std::string& username, const std::string& password);
-    void forward(const httplib::Request& request,
-                 httplib::Response& response);  // 数据转发
+    void forward(const httplib::Request& request, httplib::Response& response);  // 数据转发
+    void setHttpCorsHeaders(const httplib::Request& request, httplib::Response& response);
     void processForwardResponse(httplib::Result& forward_result,
                                 const Dragon::Url& url,
                                 int status_code,
@@ -35,6 +35,7 @@ class DragonServer {
                                 httplib::Response& origin_response,
                                 const std::chrono::system_clock::time_point request_time);
     std::string getFormatTime(const std::chrono::system_clock::time_point tp);
+    bool isMockRequest(const httplib::Request& request);
     void addRequest(const std::string& method,
                     const Dragon::Url& url,
                     const std::string& parameters,

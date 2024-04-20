@@ -19,10 +19,14 @@ void DragonServer::loadIniConfigFile() {
     m_accessControlAllowHeaders =
         m_ini["Access-Control-Allow-Headers"]["Headers"].as<std::string>();
     if (m_accessControlAllowHeaders.length() <= 0) {
-        m_accessControlAllowHeaders = "Origin, Content-Type, X-Auth-Token, X-Dragon-Extra";
+        m_accessControlAllowHeaders =
+            "Origin, Content-Type, X-Auth-Token, X-Dragon-Extra, X-Dragon-Mock";
     } else {
         if (m_accessControlAllowHeaders.find("X-Dragon-Extra") == std::string::npos) {
             m_accessControlAllowHeaders += ", X-Dragon-Extra";
+        }
+        if (m_accessControlAllowHeaders.find("X-Dragon-Mock") == std::string::npos) {
+            m_accessControlAllowHeaders += ", X-Dragon-Mock";
         }
     }
     m_authUser = m_ini["Authentication"]["username"].as<std::string>();
@@ -162,11 +166,10 @@ void DragonServer::run() {
         response.set_content("dragon server is working!", "text/plain");
     });
     // 返回所有监听的请求
-    m_server.Get("/all_requests",
-                 [this](const httplib::Request& request, httplib::Response& response) {
-                     std::string data = serializeAllRequests();
-                     response.set_content(data, "application/json");
-                 });
+    m_server.Get("/history", [this](const httplib::Request& request, httplib::Response& response) {
+        std::string data = serializeAllRequests();
+        response.set_content(data, "application/json");
+    });
     m_server.Get("/request", [this](const httplib::Request& request, httplib::Response& response) {
         if (!request.has_param("url")) {
             response.set_content("{\"error\":\"parameter url missing!\"}", "application/json");
@@ -273,7 +276,21 @@ void DragonServer::outputResponseError(httplib::Result& result) {
               << std::endl;
 }
 
+bool DragonServer::isMockRequest(const httplib::Request& request) {
+    return request.has_header("X-Dragon-Mock");
+}
+
+void DragonServer::setHttpCorsHeaders(const httplib::Request& request,
+                                      httplib::Response& response) {
+    // 允许跨域访问
+    response.set_header("Access-Control-Allow-Origin", request.get_header_value("origin"));
+    response.set_header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+    response.set_header("Access-Control-Allow-Credentials", "true");
+    response.set_header("Access-Control-Allow-Headers", m_accessControlAllowHeaders);
+}
+
 void DragonServer::forward(const httplib::Request& request, httplib::Response& response) {
+    // 检查参数是否正确
     if (!request.has_param("redirect_url")) {
         response.set_content("parameter redirect_url missing!", "text/plain");
         std::string error = "redirect_url not found!";
@@ -286,6 +303,23 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     std::string basic = httpBaiscAuthentication(m_authUser, m_authPwd);
     httplib::Headers headers = {{"Authorization", basic}, {"Accept", "*/*"}};
     Dragon::Url url = parseUrl(path);
+    // 检查HTTP表头是否包含X-Dragon-Mock
+    bool is_mock_request = isMockRequest(request);
+    if (is_mock_request) {
+        auto it = m_cache.find(request.method + url.hostname + url.path);
+        setHttpCorsHeaders(request, response);  // 允许跨域
+        if (it != std::end(m_cache)) {
+            auto request = m_requests[it->second];
+            json result = getRequestJson(request);
+            response.set_content(result.dump(4), "application/json");
+        } else {
+            response.set_content("{\"error\":\"/request cache missing!\"}", "application/json");
+            std::string error = "/request cache missing!";
+            std::cerr << RED(error) << std::endl;
+            return;
+        }
+    }
+    // 转发真实的请求
     std::string upstream_url = url.protocol + "://" + url.hostname + ":" + std::to_string(url.port);
     httplib::Client client(upstream_url);
     client.enable_server_certificate_verification(false);
@@ -331,11 +365,12 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
         }
     } else if (request.method == "OPTIONS") {
         // 允许跨域访问
-        response.set_header("Access-Control-Allow-Origin", request.get_header_value("origin"));
-        response.set_header("Access-Control-Allow-Methods",
-                            "GET, POST, PATCH, PUT, DELETE, OPTIONS");
-        response.set_header("Access-Control-Allow-Credentials", "true");
-        response.set_header("Access-Control-Allow-Headers", m_accessControlAllowHeaders);
+        setHttpCorsHeaders(request, response);
+        // response.set_header("Access-Control-Allow-Origin", request.get_header_value("origin"));
+        // response.set_header("Access-Control-Allow-Methods",
+        //                     "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+        // response.set_header("Access-Control-Allow-Credentials", "true");
+        // response.set_header("Access-Control-Allow-Headers", m_accessControlAllowHeaders);
         // 解决CORS跨域，浏览器每次发送真实请求前，会额外方式一次OPTION请求,返回HTTP CODE
         // 200,数据任意字符即可
         response.set_content("{}", "application/json");
@@ -365,12 +400,7 @@ void DragonServer::processForwardResponse(
             std::chrono::duration_cast<chrono::milliseconds>(response_time - request_time).count();
         std::string pretty_request_time = getFormatTime(request_time);
         // 允许跨域访问
-        origin_response.set_header("Access-Control-Allow-Origin",
-                                   origin_request.get_header_value("origin"));
-        origin_response.set_header("Access-Control-Allow-Methods",
-                                   "GET, POST, PATCH, PUT, DELETE, OPTIONS");
-        origin_response.set_header("Access-Control-Allow-Credentials", "true");
-        origin_response.set_header("Access-Control-Allow-Headers", m_accessControlAllowHeaders);
+        setHttpCorsHeaders(origin_request, origin_response);
         origin_response.set_header("X-Dragon-Extra", origin_request.body);  // 返回用户传递的参数
         // 返回响应
         origin_response.set_content(forward_result->body, "application/json");
