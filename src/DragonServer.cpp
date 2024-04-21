@@ -322,6 +322,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     // 转发真实的请求
     std::string upstream_url = url.protocol + "://" + url.hostname + ":" + std::to_string(url.port);
     httplib::Client client(upstream_url);
+    std::string content_type = request.get_header_value("Content-Type");
     client.enable_server_certificate_verification(false);
     if (request.method == "GET") {
         if (auto res = client.Get(url.path, headers)) {
@@ -332,7 +333,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
             }
         }
     } else if (request.method == "POST") {
-        if (auto res = client.Post(url.path, headers, request.body, "application/json")) {
+        if (auto res = client.Post(url.path, headers, request.body, content_type)) {
             if (res->status == StatusCode::OK_200 || res->status == StatusCode::Created_201) {
                 processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
@@ -340,7 +341,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
             }
         }
     } else if (request.method == "PATCH") {
-        if (auto res = client.Patch(url.path, headers, request.body, "application/json")) {
+        if (auto res = client.Patch(url.path, headers, request.body, content_type)) {
             if (res->status == StatusCode::OK_200) {
                 processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
@@ -348,7 +349,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
             }
         }
     } else if (request.method == "PUT") {
-        if (auto res = client.Put(url.path, headers, request.body, "application/json")) {
+        if (auto res = client.Put(url.path, headers, request.body, content_type)) {
             if (res->status == StatusCode::OK_200) {
                 processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
@@ -356,7 +357,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
             }
         }
     } else if (request.method == "DELETE") {
-        if (auto res = client.Delete(url.path, headers, request.body, "application/json")) {
+        if (auto res = client.Delete(url.path, headers, request.body, content_type)) {
             if (res->status == StatusCode::OK_200) {
                 processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
