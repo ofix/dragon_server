@@ -30,8 +30,8 @@ void to_lower_case(std::string& str);
 std::string trim_copy(std::string str);
 std::string ltrim_copy(std::string str);
 std::string rtrim_copy(std::string str);
-void padding_left(std::string& str, uint size, const char needle = ' ');
-void padding_right(std::string& str, uint size, const char needle = ' ');
+void padding_left(std::string& str, uint16_t size, const char needle = ' ');
+void padding_right(std::string& str, uint16_t size, const char needle = ' ');
 
 std::string repeat_chars(char ch, int count);
 void fill_chars(std::string& str,

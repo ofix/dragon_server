@@ -14,7 +14,7 @@ class ConsoleTable {
     } Align;
     typedef enum _valign {
         top,     // 靠上对齐，
-        middle,  //垂直居中
+        middle,  // 垂直居中
         bottom   // 底部对齐
     } Valign;
     typedef enum _layout {
@@ -30,10 +30,10 @@ class ConsoleTable {
     ConsoleTable& setAlign(ConsoleTable::Align align);
     ConsoleTable& setValign(ConsoleTable::Valign valign);
     ConsoleTable& setLayout(ConsoleTable::Layout layout);
-    ConsoleTable& setColumnWidth(uint column_index, size_t width);
-    ConsoleTable& setColumnColor(uint column_index, ConsoleTable::Color color);
-    ConsoleTable::Color getColumnColor(uint column_index);
-    size_t getColumnWidth(uint column_index);
+    ConsoleTable& setColumnWidth(uint16_t column_index, size_t width);
+    ConsoleTable& setColumnColor(uint16_t column_index, ConsoleTable::Color color);
+    ConsoleTable::Color getColumnColor(uint16_t column_index);
+    size_t getColumnWidth(uint16_t column_index);
     ConsoleTable::Align getAlign() const;
     ConsoleTable::Valign getValign() const;
     ConsoleTable::Layout getLayout() const;
@@ -63,20 +63,17 @@ class ConsoleTable {
     void printTable();
     void printTableBorder();
     bool needPrintTableBoder(size_t row_index);
-    std::string getCellColorText(std::string text, uint column_index);
-    ConsoleTable::Cell layoutCell(std::string& str, uint column_index);
-    std::vector<std::string> fillCell(ConsoleTable::Cell& cell,
-                                      size_t width,
-                                      size_t nRows);
+    std::string getCellColorText(std::string text, uint16_t column_index);
+    ConsoleTable::Cell layoutCell(std::string& str, uint16_t column_index);
+    std::vector<std::string> fillCell(ConsoleTable::Cell& cell, size_t width, size_t nRows);
 
     std::vector<std::vector<std::string>> m_data;  // 用户传递过来的表格数据
-    Table m_table;  // 已经格式化好的表格内容，可以直接控制台打印输出
-    size_t m_padding;        // 表格内间距
-    size_t m_max_col_width;  // 自适应布局，每列最大列宽
-    std::unordered_map<uint, size_t> m_fixed_col_width;  // 固定列布局，每列最大显示列宽
-    std::unordered_map<uint, ConsoleTable::Color>
-        m_column_colors;  // 每列对应输出文字颜色
-    Align m_align;        // 文字左右对齐
-    Valign m_valign;      // 文字垂直对齐
-    Layout m_layout;      // 表格布局方式
+    Table m_table;     // 已经格式化好的表格内容，可以直接控制台打印输出
+    size_t m_padding;  // 表格内间距
+    size_t m_max_col_width;                                  // 自适应布局，每列最大列宽
+    std::unordered_map<uint16_t, size_t> m_fixed_col_width;  // 固定列布局，每列最大显示列宽
+    std::unordered_map<uint16_t, ConsoleTable::Color> m_column_colors;  // 每列对应输出文字颜色
+    Align m_align;                                                      // 文字左右对齐
+    Valign m_valign;                                                    // 文字垂直对齐
+    Layout m_layout;                                                    // 表格布局方式
 };
