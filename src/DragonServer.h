@@ -43,7 +43,9 @@ class DragonServer {
                     const int response_code,
                     std::string pretty_request_time,
                     int64_t duration);
-    void outputRequestDebugInfo(const httplib::Request& request, httplib::Response& response);
+    void outputRequestDebugInfo(const httplib::Request& request,
+                                httplib::Response& response,
+                                bool is_cache = false);
     std::string serializeAllRequests();
     json getRequestJson(Dragon::Request& request);
     std::string getRequestHost();

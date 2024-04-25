@@ -187,10 +187,10 @@ void DragonServer::run() {
             json result = getRequestJson(request);
             response.set_content(result.dump(4), "application/json");
         } else {
-            response.set_content("{\"error\":\"/request cache missing!\"}", "application/json");
-            std::string error = "/request cache missing!";
-            std::cerr << RED(error) << std::endl;
-            return;
+            httplib::Request new_request = request;  // 转换请求参数
+            new_request.params.emplace("redirect_url", full_url);
+            new_request.method = method;
+            forward(new_request, response);
         }
     });
     m_server.Get("/proxy", [this](const httplib::Request& request, httplib::Response& response) {
@@ -299,25 +299,26 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     }
     auto requst_time = std::chrono::high_resolution_clock::now();
     const std::string path = request.get_param_value("redirect_url");
-    gLogger->log("[bmc] %s, %s\n", request.method.c_str(), path.c_str());
     std::string basic = httpBaiscAuthentication(m_authUser, m_authPwd);
     httplib::Headers headers = {{"Authorization", basic}, {"Accept", "*/*"}};
     Dragon::Url url = parseUrl(path);
+
     // 检查HTTP表头是否包含X-Dragon-Mock
     bool is_mock_request = isMockRequest(request);
+    const char* log_format = is_mock_request ? "[bmc][cache] %s, %s\n" : "[bmc] %s, %s\n";
+    gLogger->log(log_format, request.method.c_str(), path.c_str());
     if (is_mock_request) {
         auto it = m_cache.find(request.method + url.hostname + url.path);
         setHttpCorsHeaders(request, response);  // 允许跨域
         if (it != std::end(m_cache)) {
-            auto request = m_requests[it->second];
-            json result = getRequestJson(request);
-            response.set_content(result.dump(4), "application/json");
-        } else {
-            response.set_content("{\"error\":\"/request cache missing!\"}", "application/json");
-            std::string error = "/request cache missing!";
-            std::cerr << RED(error) << std::endl;
-            return;
+            auto key = m_requests[it->second];
+            json result = getRequestJson(key);
+            json dragon_response = result["@dragon.response"];
+            response.set_content(dragon_response.dump(4), "application/json");
+            // 将响应结果打印到控制台
+            outputRequestDebugInfo(request, response);
         }
+        return;
     }
     // 转发真实的请求
     std::string upstream_url = url.protocol + "://" + url.hostname + ":" + std::to_string(url.port);
@@ -418,10 +419,12 @@ void DragonServer::processForwardResponse(
 
 // 打印调试信息
 void DragonServer::outputRequestDebugInfo(const httplib::Request& request,
-                                          httplib::Response& response) {
+                                          httplib::Response& response,
+                                          bool is_cache) {
     const std::string path = request.get_param_value("redirect_url");
     std::string clr_url = "";
-    std::string request_url = now() + " [bmc] " + request.method + ", " + path;
+    std::string request_url =
+        now() + (is_cache ? " [bmc][cache] " : " [bmc] ") + request.method + ", " + path;
     if (request.method == "GET") {
         clr_url = GREEN(request_url);
     } else if (request.method == "POST") {
@@ -438,8 +441,10 @@ void DragonServer::outputRequestDebugInfo(const httplib::Request& request,
     std::cout << clr_url << std::endl;
 
     if (request.body.length() > 0) {
-        gLogger->log("[bmc] payload: %s\n", request.body.c_str());
-        std::string payload = now() + " [bmc] payload: " + request.body;
+        const char* log_prefix = is_cache ? "[bmc][cache] payload: %s\n" : "[bmc] payload: %s\n";
+        gLogger->log(log_prefix, request.body.c_str());
+        std::string payload =
+            now() + (is_cache ? " [bmc][cache]" : " [bmc]") + " payload: " + request.body;
         std::cout << YELLOW(payload) << std::endl;
     }
 
