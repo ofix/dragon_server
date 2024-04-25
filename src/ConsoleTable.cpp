@@ -51,13 +51,13 @@ ConsoleTable& ConsoleTable::setLayout(ConsoleTable::Layout layout) {
     return *this;
 }
 
-ConsoleTable& ConsoleTable::setColumnWidth(uint column_index, size_t width) {
+ConsoleTable& ConsoleTable::setColumnWidth(uint16_t column_index, size_t width) {
     m_fixed_col_width.insert({column_index, width});
     m_layout = ConsoleTable::Layout::fixed;
     return *this;
 }
 
-size_t ConsoleTable::getColumnWidth(uint column_index) {
+size_t ConsoleTable::getColumnWidth(uint16_t column_index) {
     auto it = m_fixed_col_width.find(column_index);
     if (it != m_fixed_col_width.end()) {
         return it->second;
@@ -65,12 +65,12 @@ size_t ConsoleTable::getColumnWidth(uint column_index) {
     return m_max_col_width;
 }
 
-ConsoleTable& ConsoleTable::setColumnColor(uint column_index, ConsoleTable::Color color) {
+ConsoleTable& ConsoleTable::setColumnColor(uint16_t column_index, ConsoleTable::Color color) {
     m_column_colors.insert({column_index, color});
     return *this;
 }
 
-ConsoleTable::Color ConsoleTable::getColumnColor(uint column_index) {
+ConsoleTable::Color ConsoleTable::getColumnColor(uint16_t column_index) {
     auto it = m_column_colors.find(column_index);
     if (it != m_column_colors.end()) {
         return it->second;
@@ -78,7 +78,7 @@ ConsoleTable::Color ConsoleTable::getColumnColor(uint column_index) {
     return ConsoleTable::Color::white;
 }
 
-std::string ConsoleTable::getCellColorText(std::string text, uint column_index) {
+std::string ConsoleTable::getCellColorText(std::string text, uint16_t column_index) {
     ConsoleTable::Color clr = getColumnColor(column_index);
     if (clr == ConsoleTable::Color::white) {
         return FWHITE + text + RST;
@@ -131,8 +131,7 @@ void ConsoleTable::printTable() {
 bool ConsoleTable::needPrintTableBoder(size_t row_index) {
     size_t i = 0;
 
-    for (; i < m_table.expanded_heights.size() &&
-           (row_index + 1) > m_table.expanded_heights[i];
+    for (; i < m_table.expanded_heights.size() && (row_index + 1) > m_table.expanded_heights[i];
          i++)
         ;
     if (m_table.expanded_heights[i] == (row_index + 1)) {
@@ -233,8 +232,8 @@ void ConsoleTable::layoutTable() {
  * @author songhuabiao@greatwall.com.cn
  */
 void ConsoleTable::printTableBorder() {
-    std::cout << repeat_chars('-', m_table.col_total_width +
-                                       m_table.col_widths.size() * m_table.padding + 3)
+    std::cout << repeat_chars(
+                     '-', m_table.col_total_width + m_table.col_widths.size() * m_table.padding + 3)
               << "\n";
 }
 
@@ -244,7 +243,7 @@ void ConsoleTable::printTableBorder() {
  * @param column_index 列序号
  * @author songhuabiao@greatwall.com.cn
  */
-ConsoleTable::Cell ConsoleTable::layoutCell(std::string& str, uint column_index) {
+ConsoleTable::Cell ConsoleTable::layoutCell(std::string& str, uint16_t column_index) {
     Cell cell = {};
     std::string line = "";
     size_t ncount = 0;

@@ -119,14 +119,14 @@ std::string rtrim_copy(std::string str) {
     return str;
 }
 
-void padding_left(std::string& str, uint size, const char needle) {
+void padding_left(std::string& str, uint16_t size, const char needle) {
     if (size <= str.length()) {
         return;
     }
     str.insert(0, size - str.length(), needle);
 }
 
-void padding_right(std::string& str, uint size, const char needle) {
+void padding_right(std::string& str, uint16_t size, const char needle) {
     if (size <= str.length()) {
         return;
     }
