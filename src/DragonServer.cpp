@@ -111,6 +111,11 @@ json DragonServer::getRequestJson(Dragon::Request& request) {
     }
     item["@dragon.duration"] = request.duration;
     item["@dragon.request_time"] = request.request_time;
+    if (request.url_alias != "") {
+        item["@dragon.url_alias"] = request.url_alias;
+    } else {
+        item["@dragon.url_alias"] = request.url.path;
+    }
     return item;
 }
 
@@ -151,6 +156,11 @@ bool DragonServer::loadRequestsFile() {
             request.response = response.dump(4);
             request.request_time = (*it)["@dragon.request_time"].template get<std::string>();
             request.duration = (*it)["@dragon.duration"].template get<int64_t>();
+            if ((*it).contains("@dragon.url_alias")) {
+                request.url_alias = (*it)["@dragon.url_alias"].template get<std::string>();
+            } else {
+                request.url_alias = url.path;
+            }
             m_requests.push_back(request);
             size_t nIndex = m_requests.size() - 1;
             m_cache.insert(
@@ -165,6 +175,41 @@ void DragonServer::run() {
     m_server.Get("/", [this](const httplib::Request& request, httplib::Response& response) {
         response.set_content("dragon server is working!", "text/plain");
     });
+    // 设置接口url别名
+    m_server.Post("/url_alias",
+                  [this](const httplib::Request& request, httplib::Response& response) {
+                      json body = json::parse(request.body);
+                      const std::string full_url = body["url"].template get<std::string>();
+                      Dragon::Url url = parseUrl(full_url);
+                      const std::string url_alias = body["url_alias"].template get<std::string>();
+                      const std::string method = body["method"].template get<std::string>();
+                      auto it = m_cache.find(method + url.hostname + url.path);
+                      if (it != std::end(m_cache)) {
+                          auto _request = m_requests[it->second];
+                          _request.url_alias = url_alias;  // 修改url_alias
+                      }
+                      setHttpCorsHeaders(request, response);
+                      response.set_content("{code:200,status:\"ok\"}", "application/json");
+                  });
+    // 批量设置接口url别名
+    m_server.Post(
+        "/batch_url_alias", [this](const httplib::Request& request, httplib::Response& response) {
+            json arr = json::parse(request.body);
+            for (json::iterator it = arr.begin(); it != arr.end(); ++it) {
+                const std::string full_url = (*it)["url"].template get<std::string>();
+                Dragon::Url url = parseUrl(full_url);
+                const std::string url_alias = (*it)["url_alias"].template get<std::string>();
+                const std::string method = (*it)["method"].template get<std::string>();
+                auto ptr = m_cache.find(method + url.hostname + url.path);
+                if (ptr != std::end(m_cache)) {
+                    auto _request = m_requests[ptr->second];
+                    _request.url_alias = url_alias;
+                }
+            }
+
+            setHttpCorsHeaders(request, response);
+            response.set_content("{code:200,status:\"ok\"}", "application/json");
+        });
     // 返回所有监听的请求
     m_server.Get("/history", [this](const httplib::Request& request, httplib::Response& response) {
         std::string data = serializeAllRequests();
