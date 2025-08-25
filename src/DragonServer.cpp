@@ -37,6 +37,10 @@ void DragonServer::loadIniConfigFile() {
     if (m_authPwd.length() <= 0) {
         m_authPwd = "0penBmc";
     }
+    m_authEnabled = m_ini["Authentication"]["enabled"].as<bool>();
+    if (m_authEnabled != true) {
+        m_authEnabled = false;
+    }
     m_serverPort = m_ini["Server"]["port"].as<uint16_t>();
     if (m_serverPort > 65535 || m_serverPort <= 0) {
         m_serverPort = 8888;
@@ -222,7 +226,7 @@ void DragonServer::run() {
             std::cerr << RED(error) << std::endl;
             return;
         }
-        auto requst_time = std::chrono::high_resolution_clock::now();
+        auto request_time = std::chrono::high_resolution_clock::now();
         const std::string full_url = request.get_param_value("url");
         Dragon::Url url = parseUrl(full_url);
         const std::string method = request.get_param_value("method");
@@ -342,15 +346,18 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
         std::cerr << RED(error) << std::endl;
         return;
     }
-    auto requst_time = std::chrono::high_resolution_clock::now();
+    auto requst_time = std::chrono::steady_clock::now();
     const std::string path = request.get_param_value("redirect_url");
-    std::string basic = httpBaiscAuthentication(m_authUser, m_authPwd);
-    httplib::Headers headers = {{"Authorization", basic}, {"Accept", "*/*"}};
+    httplib::Headers headers = {};
+    if (m_authEnabled) {
+        std::string basic = httpBaiscAuthentication(m_authUser, m_authPwd);
+        headers = {{"Authorization", basic}, {"Accept", "*/*"}};
+    }
     Dragon::Url url = parseUrl(path);
 
     // 检查HTTP表头是否包含X-Dragon-Mock
     bool is_mock_request = isMockRequest(request);
-    const char* log_format = is_mock_request ? "[bmc][cache] %s, %s\n" : "[bmc] %s, %s\n";
+    const char* log_format = is_mock_request ? "[url][cache] %s, %s\n" : "[url] %s, %s\n";
     gLogger->log(log_format, request.method.c_str(), path.c_str());
     if (is_mock_request) {
         auto it = m_cache.find(request.method + url.hostname + url.path);
@@ -438,10 +445,19 @@ void DragonServer::processForwardResponse(
     int status_code,
     const httplib::Request& origin_request,
     httplib::Response& origin_response,
-    const std::chrono::system_clock::time_point request_time) {
-    auto response_time = std::chrono::high_resolution_clock::now();
+    const std::chrono::steady_clock::time_point request_time) {
+    auto response_time = std::chrono::steady_clock::now();
     // 将返回的结果序列化为JSON
     try {
+        // 如果不是JSON格式，直接返回
+        if (origin_request.get_header_value("Content-Type").find("application/json") ==
+            std::string::npos) {
+            origin_response.set_content(forward_result->body,
+                                        origin_request.get_header_value("Content-Type"));
+            origin_response.status = forward_result->status;
+            outputRequestUrl(origin_request);
+            return;
+        }
         json root = json::parse(forward_result->body);
         auto duration =
             std::chrono::duration_cast<chrono::milliseconds>(response_time - request_time).count();
@@ -462,6 +478,27 @@ void DragonServer::processForwardResponse(
     }
 }
 
+void DragonServer::outputRequestUrl(const httplib::Request& request, bool is_cache) {
+    const std::string path = request.get_param_value("redirect_url");
+    std::string clr_url = "";
+    std::string request_url =
+        now() + (is_cache ? " [url][cache] " : " [url] ") + request.method + ", " + path;
+    if (request.method == "GET") {
+        clr_url = GREEN(request_url);
+    } else if (request.method == "POST") {
+        clr_url = YELLOW(request_url);
+    } else if (request.method == "PATCH") {
+        clr_url = BLUE(request_url);
+    } else if (request.method == "PUT") {
+        clr_url = MAGENTA(request_url);
+    } else if (request.method == "DELETE") {
+        clr_url = RED(request_url);
+    } else {
+        clr_url = request_url;
+    }
+    std::cout << clr_url << std::endl;
+}
+
 // 打印调试信息
 void DragonServer::outputRequestDebugInfo(const httplib::Request& request,
                                           httplib::Response& response,
@@ -469,7 +506,7 @@ void DragonServer::outputRequestDebugInfo(const httplib::Request& request,
     const std::string path = request.get_param_value("redirect_url");
     std::string clr_url = "";
     std::string request_url =
-        now() + (is_cache ? " [bmc][cache] " : " [bmc] ") + request.method + ", " + path;
+        now() + (is_cache ? " [url][cache] " : " [url] ") + request.method + ", " + path;
     if (request.method == "GET") {
         clr_url = GREEN(request_url);
     } else if (request.method == "POST") {
@@ -486,18 +523,25 @@ void DragonServer::outputRequestDebugInfo(const httplib::Request& request,
     std::cout << clr_url << std::endl;
 
     if (request.body.length() > 0) {
-        const char* log_prefix = is_cache ? "[bmc][cache] payload: %s\n" : "[bmc] payload: %s\n";
+        const char* log_prefix = is_cache ? "[url][cache] payload: %s\n" : "[url] payload: %s\n";
         gLogger->log(log_prefix, request.body.c_str());
         std::string payload =
-            now() + (is_cache ? " [bmc][cache]" : " [bmc]") + " payload: " + request.body;
+            now() + (is_cache ? " [url][cache]" : " [url]") + " payload: " + request.body;
         std::cout << YELLOW(payload) << std::endl;
     }
 
     std::cout << response.body << std::endl;
 }
 
-std::string DragonServer::getFormatTime(const std::chrono::system_clock::time_point tp) {
-    std::time_t time = std::chrono::system_clock::to_time_t(tp);
+std::string DragonServer::getFormatTime(const std::chrono::steady_clock::time_point tp) {
+    static auto sys_start = std::chrono::system_clock::now();
+    static auto steady_start = std::chrono::steady_clock::now();
+    // 计算steady_clock的增量
+    auto steady_duration = tp - steady_start;
+    std::chrono::system_clock::time_point sys_time =
+        sys_start +
+        std::chrono::duration_cast<std::chrono::system_clock::duration>(steady_duration);
+    std::time_t time = std::chrono::system_clock::to_time_t(sys_time);
     // std::tm tm = *std::gmtime(&time);  // GMT (UTC)
     std::tm tm = *std::localtime(&time);  // Locale time-zone, usually UTC by default.
     std::stringstream ss;
@@ -573,7 +617,7 @@ void DragonServer::copyright(std::string& version) {
                  "                *\n";
     std::cout << "*                                                                                "
                  "                *\n";
-    std::cout << "*                          author: songhuabiao@greatwall.com.cn                  "
+    std::cout << "*                          author: 981326632@qq.com                  "
                  "                *\n";
     std::cout << "*                                    version:" + version +
                      "                                                 *\n";

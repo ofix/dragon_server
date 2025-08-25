@@ -33,8 +33,8 @@ class DragonServer {
                                 int status_code,
                                 const httplib::Request& origin_request,
                                 httplib::Response& origin_response,
-                                const std::chrono::system_clock::time_point request_time);
-    std::string getFormatTime(const std::chrono::system_clock::time_point tp);
+                                const std::chrono::steady_clock::time_point request_time);
+    std::string getFormatTime(const std::chrono::steady_clock::time_point tp);
     bool isMockRequest(const httplib::Request& request);
     void addRequest(const std::string& method,
                     const Dragon::Url& url,
@@ -46,6 +46,7 @@ class DragonServer {
     void outputRequestDebugInfo(const httplib::Request& request,
                                 httplib::Response& response,
                                 bool is_cache = false);
+    void outputRequestUrl(const httplib::Request& request, bool is_cache = false);
     std::string serializeAllRequests();
     json getRequestJson(Dragon::Request& request);
     std::string getRequestHost();
@@ -54,6 +55,7 @@ class DragonServer {
     bool saveRequestsToFile();
     bool loadRequestsFile();
     bool generateCode();
+
     void outputResponseError(httplib::Result& result);
 
    private:
@@ -66,5 +68,6 @@ class DragonServer {
     std::string m_accessControlAllowHeaders;
     std::string m_authUser;
     std::string m_authPwd;
+    bool m_authEnabled;
     uint16_t m_serverPort;
 };

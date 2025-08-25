@@ -6,6 +6,7 @@
 #include <regex>
 #include <string>
 #include <vector>
+#include <map>
 
 #if defined(_WIN32)
 #include <direct.h>  // _mkdir
