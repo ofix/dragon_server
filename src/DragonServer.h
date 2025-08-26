@@ -27,6 +27,7 @@ class DragonServer {
     void installServerErrorHandlers();
     std::string httpBaiscAuthentication(const std::string& username, const std::string& password);
     void forward(const httplib::Request& request, httplib::Response& response);  // 数据转发
+    std::string parseOriginUrlPath(std::string url);
     void setHttpCorsHeaders(const httplib::Request& request, httplib::Response& response);
     void processForwardResponse(httplib::Result& forward_result,
                                 const Dragon::Url& url,

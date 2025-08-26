@@ -31,20 +31,24 @@ void exit_handler(int s) {
 #endif
 
 int main(int argc, char* argv[]) {
-    pServer = new DragonServer();
+    try {
+        pServer = new DragonServer();
 
 #ifdef _WIN32
-    if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
-        printf("\nERROR: Could not set control handler");
-    }
+        if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
+            printf("\nERROR: Could not set control handler");
+        }
 #elif __linux__
-    struct sigaction sigIntHandler;
-    sigIntHandler.sa_handler = exit_handler;
-    sigemptyset(&sigIntHandler.sa_mask);
-    sigIntHandler.sa_flags = 0;
+        struct sigaction sigIntHandler;
+        sigIntHandler.sa_handler = exit_handler;
+        sigemptyset(&sigIntHandler.sa_mask);
+        sigIntHandler.sa_flags = 0;
 
-    sigaction(SIGINT, &sigIntHandler, NULL);
+        sigaction(SIGINT, &sigIntHandler, NULL);
 #endif
-    pServer->run();
+        pServer->run();
+    } catch (std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
     return 0;
 }

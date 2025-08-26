@@ -264,6 +264,44 @@ void DragonServer::run() {
     m_server.listen("localhost", m_serverPort);
 }
 
+std::string DragonServer::httpBaiscAuthentication(const std::string& username,
+                                                  const std::string& password) {
+    std::string auth = username + ':' + password;
+    std::string basic = base64_encode(auth);
+    return "Basic " + basic;
+}
+
+void DragonServer::outputResponseError(httplib::Result& result) {
+    auto err = result.error();
+    std::cout << "Status code:" << result->status << ",HTTP error: " << httplib::to_string(err)
+              << std::endl;
+}
+
+bool DragonServer::isMockRequest(const httplib::Request& request) {
+    return request.has_header("X-Dragon-Mock");
+}
+
+void DragonServer::setHttpCorsHeaders(const httplib::Request& request,
+                                      httplib::Response& response) {
+    // 允许跨域访问
+    response.set_header("Access-Control-Allow-Origin", request.get_header_value("origin"));
+    response.set_header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+    response.set_header("Access-Control-Allow-Credentials", "true");
+    response.set_header("Access-Control-Allow-Headers", m_accessControlAllowHeaders);
+}
+
+std::string DragonServer::parseOriginUrlPath(std::string url) {
+    std::string key = "redirect_url=";
+    size_t pos = url.find(key);
+    if (pos != std::string::npos) {
+        pos += key.length();
+        std::string origin_url = url.substr(pos);
+        return origin_url;
+    } else {
+        return "";
+    }
+}
+
 // 解析URL
 Dragon::Url DragonServer::parseUrl(const std::string& path) {
     Dragon::Url url = {"", "", -1, ""};
@@ -312,32 +350,6 @@ Dragon::Url DragonServer::parseUrl(const std::string& path) {
     return url;
 }
 
-std::string DragonServer::httpBaiscAuthentication(const std::string& username,
-                                                  const std::string& password) {
-    std::string auth = username + ':' + password;
-    std::string basic = base64_encode(auth);
-    return "Basic " + basic;
-}
-
-void DragonServer::outputResponseError(httplib::Result& result) {
-    auto err = result.error();
-    std::cout << "Status code:" << result->status << ",HTTP error: " << httplib::to_string(err)
-              << std::endl;
-}
-
-bool DragonServer::isMockRequest(const httplib::Request& request) {
-    return request.has_header("X-Dragon-Mock");
-}
-
-void DragonServer::setHttpCorsHeaders(const httplib::Request& request,
-                                      httplib::Response& response) {
-    // 允许跨域访问
-    response.set_header("Access-Control-Allow-Origin", request.get_header_value("origin"));
-    response.set_header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
-    response.set_header("Access-Control-Allow-Credentials", "true");
-    response.set_header("Access-Control-Allow-Headers", m_accessControlAllowHeaders);
-}
-
 void DragonServer::forward(const httplib::Request& request, httplib::Response& response) {
     // 检查参数是否正确
     if (!request.has_param("redirect_url")) {
@@ -347,7 +359,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
         return;
     }
     auto requst_time = std::chrono::steady_clock::now();
-    const std::string path = request.get_param_value("redirect_url");
+    const std::string path = parseOriginUrlPath(request.target);
     httplib::Headers headers = {};
     if (m_authEnabled) {
         std::string basic = httpBaiscAuthentication(m_authUser, m_authPwd);
@@ -374,11 +386,12 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     }
     // 转发真实的请求
     std::string upstream_url = url.protocol + "://" + url.hostname + ":" + std::to_string(url.port);
+    std::cout << "[redirect] " << upstream_url + url.path << std::endl;
     httplib::Client client(upstream_url);
     std::string content_type = request.get_header_value("Content-Type");
-    client.enable_server_certificate_verification(false);
+    client.enable_server_certificate_verification(true);
     if (request.method == "GET") {
-        if (auto res = client.Get(url.path, headers)) {
+        if (auto res = client.Get(url.path)) {
             if (res->status == StatusCode::OK_200) {
                 processForwardResponse(res, url, res->status, request, response, requst_time);
             } else {
@@ -450,10 +463,13 @@ void DragonServer::processForwardResponse(
     // 将返回的结果序列化为JSON
     try {
         // 如果不是JSON格式，直接返回
-        if (origin_request.get_header_value("Content-Type").find("application/json") ==
-            std::string::npos) {
-            origin_response.set_content(forward_result->body,
-                                        origin_request.get_header_value("Content-Type"));
+        std::string content_type = forward_result->get_header_value("Content-Type");
+        if (content_type.find("application/json") == std::string::npos) {
+            // 允许跨域访问
+            std::cout << "redirect success!" << std::endl;
+            setHttpCorsHeaders(origin_request, origin_response);
+            origin_response.set_header("X-Dragon-Extra", origin_request.body);
+            origin_response.set_content(forward_result->body, content_type);
             origin_response.status = forward_result->status;
             outputRequestUrl(origin_request);
             return;

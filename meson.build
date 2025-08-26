@@ -5,15 +5,16 @@ project(
   license: 'MIT',
   default_options: [
     'cpp_std=c++11',
-    'buildtype=release',
-    'b_ndebug=if-release',
-    'b_lto=true',
+    'buildtype=debug',
+    'b_ndebug=false',
+    'b_lto=false',
     'warning_level=3',
     'default_library=static',
   ],
   meson_version: '>=0.47.0',
 )
 
+version = meson.project_version()
 # cpp_args ='-Werror'
 
 compile_time = run_command('date', '+%F %H:%M:%S').stdout().strip()
@@ -144,10 +145,6 @@ endif
 
 if meson.version().version_compare('>=0.54.0')
   meson.override_dependency('cpp-httplib', cpp_httplib_dep)
-endif
-
-if get_option('cpp-httplib_test')
-  subdir('test')
 endif
 
 ###############################################################
