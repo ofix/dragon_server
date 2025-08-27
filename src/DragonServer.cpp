@@ -369,7 +369,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
 
     // 检查HTTP表头是否包含X-Dragon-Mock
     bool is_mock_request = isMockRequest(request);
-    const char* log_format = is_mock_request ? "[url][cache] %s, %s\n" : "[url] %s, %s\n";
+    const char* log_format = is_mock_request ? "[proxy][cache] %s, %s\n" : "[proxy] %s, %s\n";
     gLogger->log(log_format, request.method.c_str(), path.c_str());
     if (is_mock_request) {
         auto it = m_cache.find(request.method + url.hostname + url.path);
@@ -386,7 +386,7 @@ void DragonServer::forward(const httplib::Request& request, httplib::Response& r
     }
     // 转发真实的请求
     std::string upstream_url = url.protocol + "://" + url.hostname + ":" + std::to_string(url.port);
-    std::cout << "[redirect] " << upstream_url + url.path << std::endl;
+    std::cout << "[proxy] " << upstream_url + url.path << std::endl;
     httplib::Client client(upstream_url);
     std::string content_type = request.get_header_value("Content-Type");
     client.enable_server_certificate_verification(true);
